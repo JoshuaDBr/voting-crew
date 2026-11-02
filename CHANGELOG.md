@@ -2,6 +2,13 @@
 
 My Voting Crew follows [Semantic Versioning](https://semver.org): MAJOR.MINOR.PATCH. Versions before 1.0.0 were the alpha: features were still arriving and saved lists could be reset. From 1.0.0 on, a saved list is kept across updates, and a change that would break it would be a new major version. Each new design or feature set is a minor version, and bug fixes are patches. Each version is tagged on its commit. From 1.2.0 on, Mainiak adds the tag after merging.
 
+## 1.6.0 (2026-11-02)
+
+- Polls & Tracking: the poll box now shows three recent polls per race (NYT/Siena, YouGov, Suffolk University), newest first, Republican and Democrat only. Each shows its source and fieldwork dates.
+- The box moves on every 12 seconds, Senate then Governor. ‹ and › step through by hand; a press holds it still for 30 seconds.
+- Polls are typed into the page, so they show at once. The VoteHub server function (`/api/odds`) is removed.
+- A second outlined arrow below the "Swipe for more!" words.
+
 ## 1.5.0 (2026-10-31)
 
 An intro screen now opens the site on every visit, drawn from Mainiak's sketch. This version also fixes the swipe between the main page and the More screen. Apart from the hint, the main page, the More screen, the poll, printing and the flyer are unchanged.

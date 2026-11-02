@@ -104,22 +104,30 @@
       font-weight: 400; line-height: 1.15;
       text-align: right;
     }
-    .race { transition: opacity .35s; }
-    .race.fade { opacity: 0; }
+    /* Polls (1.6.0): ‹ and › either side; every poll sits in the same spot,
+       so the box keeps the height of the tallest and only the shown one is visible. */
+    .odds { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: 4px; }
+    .race { display: grid; }
+    .race-slide { grid-area: 1 / 1; opacity: 0; visibility: hidden; transition: opacity .35s, visibility 0s .35s; }
+    .race-slide.on { opacity: 1; visibility: visible; transition: opacity .35s; }
+    .poll-step {
+      align-self: stretch; min-width: 32px; padding: 0 2px;
+      background: none; border: 0; border-radius: 6px; cursor: pointer;
+      font: inherit; font-size: 1.9rem; line-height: 1; color: var(--line);
+    }
+    @media (hover: hover) { .poll-step:hover { color: var(--accent); } }
+    .poll-step:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+    @media (prefers-reduced-motion: reduce) { .race-slide, .race-slide.on { transition: none; } }
     .race-label { margin: 0 0 4px; font-size: .72rem; color: var(--muted); text-align: right; text-transform: uppercase; letter-spacing: .05em; }
     /* The two fine-print lines (poll date, source) use a plain regular-weight sans, and wrap evenly when they must. */
-    .race-poll, .odds-src { font-family: var(--print-font); font-weight: 400; font-synthesis: none; text-wrap: balance; }
+    .race-poll { font-family: var(--print-font); font-weight: 400; font-synthesis: none; text-wrap: balance; }
     .race-poll { margin: 4px 0 0; font-size: .7rem; line-height: 1.35; color: var(--muted); text-align: right; }
-    /* The real poll line wraps on narrow screens; the placeholder reserves the same two lines. */
-    .odds { container-type: inline-size; }
-    @container (max-width: 300px) { .race-poll { min-height: 2.7em; } }
     .cand { margin: 0 0 6px; }
     .cand-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: .9rem; }
     .cand-head .pct { font-variant-numeric: tabular-nums; }
     .bar { height: 10px; background: var(--track); border: 1.5px solid var(--line); margin-top: 2px; }
     .bar > span { display: block; height: 100%; background: var(--other); transition: width .4s; }
     .bar > span.rep { background: var(--accent); }
-    .odds-src { margin: 2px 0 0; font-size: .68rem; line-height: 1.35; color: var(--muted); text-align: right; }
 
     /* ---- Arrow: "Who will you bring to the polls?", traced from the design.
        One drawing, so band, shadow and words scale together. ---- */
@@ -268,7 +276,7 @@
        third blink (each 15 s) shows a question instead; see the script. */
     /* The hint rides on the sliding track, at the right edge of screen 1, so
        it slides away with the page. An outlined arrow above the words points
-       the way to swipe (1.5.0). */
+       the way to swipe (1.5.0), and another below them (1.6.0). */
     :root { --hint-w: 38px; }
     .more-hint {
       position: absolute; z-index: 5;
@@ -696,8 +704,9 @@
     <div class="side">
       <h2 class="odds-title" id="odds-title" hidden>Change the odds!</h2>
       <section class="odds" id="odds" aria-labelledby="odds-title" hidden>
+        <button type="button" class="poll-step" id="poll-prev" aria-label="Previous poll">‹</button>
         <div class="race" id="race"></div>
-        <p class="odds-src" id="odds-src"></p>
+        <button type="button" class="poll-step" id="poll-next" aria-label="Next poll">›</button>
       </section>
     </div>
 
@@ -871,7 +880,7 @@
     </section>
   </div>
   <!-- "More!" hint: opens screen 2 (for mouse and keyboard users too). -->
-  <button type="button" class="more-hint" id="more-open" aria-label="More: open the More screen"><svg class="hint-arrow" viewBox="0 0 34 26" aria-hidden="true" focusable="false"><path d="M32.5 8v9h-18v7.5L2 12.5 14.5.5V8z" class="dn-shadow" transform="translate(2.5 2)"/><path d="M32.5 8v9h-18v7.5L2 12.5 14.5.5V8z" class="dn-body"/></svg><span class="hint-words">Swipe for more!</span></button>
+  <button type="button" class="more-hint" id="more-open" aria-label="More: open the More screen"><svg class="hint-arrow" viewBox="0 0 34 26" aria-hidden="true" focusable="false"><path d="M32.5 8v9h-18v7.5L2 12.5 14.5.5V8z" class="dn-shadow" transform="translate(2.5 2)"/><path d="M32.5 8v9h-18v7.5L2 12.5 14.5.5V8z" class="dn-body"/></svg><span class="hint-words">Swipe for more!</span><svg class="hint-arrow" viewBox="0 0 34 26" aria-hidden="true" focusable="false"><path d="M32.5 8v9h-18v7.5L2 12.5 14.5.5V8z" class="dn-shadow" transform="translate(2.5 2)"/><path d="M32.5 8v9h-18v7.5L2 12.5 14.5.5V8z" class="dn-body"/></svg></button>
   </div>
   </div>
 
@@ -914,7 +923,8 @@
       var START = 5;             // names shown at first
       var EXPANDED = 10;         // names after "Expand your list"
       var MAX = 40;              // most names the "+" button allows
-      var RACE_SECONDS = 15;     // time on each race before switching
+      var POLL_SECONDS = 12;     // time on each poll before moving on
+      var PAUSE_SECONDS = 30;    // after a press of ‹ or ›, wait this long before moving on
       var EXPAND_SECONDS = 5;    // text / arrow swap on the expand button
 
       var KEY = 'votingCrew.v2';
@@ -1311,11 +1321,24 @@
       render();
       buildSheet('mine');
 
-      // ---- Odds: rotates between races, Republican always on top ----
+      // ---- Polls: three recent polls per race, Republican always on top ----
+      // Typed in by hand from each pollster's release (Nov 2, 2026), newest
+      // first. Each race shows its polls in turn, then the other race.
       if (!SHOW_ODDS) return;
+      var POLLS = [
+        { label: 'U.S. Senate', subtitle: 'Ohio special election', polls: [
+          { source: 'NYT/Siena', dates: 'Oct 26–Nov 1, 2026', R: ['Jon Husted', 44], D: ['Sherrod Brown', 49] },
+          { source: 'YouGov', dates: 'Oct 26–29, 2026', R: ['Jon Husted', 48], D: ['Sherrod Brown', 50] },
+          { source: 'Suffolk University', dates: 'Oct 21–26, 2026', R: ['Jon Husted', 44], D: ['Sherrod Brown', 47] },
+        ] },
+        { label: 'Governor', subtitle: 'Ohio', polls: [
+          { source: 'NYT/Siena', dates: 'Oct 26–Nov 1, 2026', R: ['Vivek Ramaswamy', 43], D: ['Amy Acton', 49] },
+          { source: 'YouGov', dates: 'Oct 26–29, 2026', R: ['Vivek Ramaswamy', 46], D: ['Amy Acton', 52] },
+          { source: 'Suffolk University', dates: 'Oct 21–26, 2026', R: ['Vivek Ramaswamy', 44], D: ['Amy Acton', 48] },
+        ] },
+      ];
       var oddsEl = document.getElementById('odds');
       var raceEl = document.getElementById('race');
-      var srcEl = document.getElementById('odds-src');
 
       function el(tag, cls, text) {
         var n = document.createElement(tag);
@@ -1323,67 +1346,62 @@
         if (text !== undefined) n.textContent = text;
         return n;
       }
-      function showRace(race) {
-        var cands = race.candidates.slice().sort(function (a, b) {
-          return (b.partyKey === 'R') - (a.partyKey === 'R');
+      // Every poll is drawn once, all in the same spot; only the current one
+      // shows. The box is as tall as the tallest, so nothing jumps.
+      var slides = [];
+      POLLS.forEach(function (race) {
+        race.polls.forEach(function (p, n) {
+          var s = el('div', 'race-slide');
+          s.setAttribute('role', 'group');
+          s.setAttribute('aria-roledescription', 'poll');
+          s.setAttribute('aria-label', race.label + ', poll ' + (n + 1) + ' of ' + race.polls.length);
+          s.appendChild(el('p', 'race-label', race.label + ' · ' + race.subtitle));
+          [['rep', p.R], ['', p.D]].forEach(function (c) {
+            var wrap = el('div', 'cand');
+            var head = el('div', 'cand-head');
+            head.appendChild(el('span', '', c[1][0]));
+            head.appendChild(el('span', 'pct', c[1][1] + '%'));
+            wrap.appendChild(head);
+            var bar = el('div', 'bar');
+            var fill = el('span', c[0]);
+            fill.style.width = c[1][1] + '%';
+            bar.appendChild(fill);
+            wrap.appendChild(bar);
+            s.appendChild(wrap);
+          });
+          s.appendChild(el('p', 'race-poll', p.source + ' · ' + p.dates));
+          raceEl.appendChild(s);
+          slides.push(s);
         });
-        raceEl.textContent = '';
-        raceEl.appendChild(el('p', 'race-label', race.label + (race.subtitle && race.subtitle !== 'Ohio' ? ' · ' + race.subtitle : ' · Ohio')));
-        cands.forEach(function (c) {
-          var wrap = el('div', 'cand');
-          var head = el('div', 'cand-head');
-          head.appendChild(el('span', '', c.name));
-          head.appendChild(el('span', 'pct', typeof c.pct === 'number' ? c.pct + '%' : '—'));
-          wrap.appendChild(head);
-          var bar = el('div', 'bar');
-          var fill = el('span', c.partyKey === 'R' ? 'rep' : '');
-          fill.style.width = (typeof c.pct === 'number' ? c.pct : 0) + '%';
-          bar.appendChild(fill);
-          wrap.appendChild(bar);
-          raceEl.appendChild(wrap);
+      });
+      var cur = 0;
+      function show(i) {
+        cur = (i + slides.length) % slides.length;
+        slides.forEach(function (s, n) {
+          s.classList.toggle('on', n === cur);
+          s.setAttribute('aria-hidden', n === cur ? 'false' : 'true');
         });
-        if (race.fieldwork) {
-          var poll = 'Latest Fox News poll: ' + race.fieldwork + (race.sample ? ' · ' + race.sample : '');
-          raceEl.appendChild(el('p', 'race-poll', poll));
-        }
       }
-      // Staleness here means the fetch itself failed (or returned nothing
-      // usable) — polls are weeks old by nature, so their age is not a sign
-      // of a problem the way it would be for a live market.
-      // Until the numbers arrive, the box is drawn with blank bars, so the
-      // page does not jump when they land. A failed fetch removes it again.
-      var PLACEHOLDER = {
-        label: 'U.S. Senate', subtitle: 'Ohio special election', fieldwork: 'loading',
-        candidates: [{ name: 'Jon Husted', partyKey: 'R' }, { name: 'Sherrod Brown', partyKey: 'D' }],
-      };
-      function setOddsShown(on) {
-        oddsEl.hidden = !on;
-        document.getElementById('odds-title').hidden = !on;
+      show(0);
+      oddsEl.hidden = false;
+      document.getElementById('odds-title').hidden = false;
+
+      // Moves on by itself; a press of ‹ or › holds it still for a while.
+      var timer = null;
+      function run(delay) {
+        clearTimeout(timer);
+        timer = setTimeout(function tick() {
+          show(cur + 1);
+          timer = setTimeout(tick, POLL_SECONDS * 1000);
+        }, delay);
       }
-      showRace(PLACEHOLDER);
-      raceEl.lastChild.textContent = 'Loading the latest Fox News poll\u2026';
-      srcEl.textContent = 'Fox News poll (Beacon Research/Shaw & Co.), via VoteHub (CC BY 4.0)';
-      setOddsShown(true);
-      function start(data) {
-        if (!data || !Array.isArray(data.races) || !data.races.length) { setOddsShown(false); return; }
-        var i = 0;
-        showRace(data.races[0]);
-        srcEl.textContent = data.credit || 'Fox News poll, via VoteHub.';
-        if (data.races.length < 2) return;
-        setInterval(function () {
-          raceEl.classList.add('fade');
-          setTimeout(function () {
-            i = (i + 1) % data.races.length;
-            showRace(data.races[i]);
-            raceEl.classList.remove('fade');
-          }, 350);
-        }, RACE_SECONDS * 1000);
-      }
-      // Failure leaves the odds hidden; the list keeps working on its own.
-      fetch('/api/odds')
-        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
-        .then(start)
-        .catch(function () { setOddsShown(false); });
+      run(POLL_SECONDS * 1000);
+      [['poll-prev', -1], ['poll-next', 1]].forEach(function (b) {
+        document.getElementById(b[0]).addEventListener('click', function () {
+          show(cur + b[1]);
+          run(PAUSE_SECONDS * 1000);
+        });
+      });
     })();
   </script>
   <script>
